@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="ImoProject/ImoProject.vcxproj" Id="10a73686-3bed-47f9-b11f-e1c22975439d" />
+</Solution>
