@@ -6,7 +6,6 @@ Sequence PruneTour(Sequence tour, const Data& data) {
     bool improved = true;
 
     // Pętla wykonuje się tak długo, jak długo znajdujemy wierzchołek do usunięcia.
-    // Minimalny cykl to 2 wierzchołki (A <-> B), choć zazwyczaj będzie ich więcej.
     while (improved && tour.size() > 2) {
         improved = false;
         double bestRemovalImprovement = 0.0;
@@ -60,14 +59,14 @@ Sequence GenerateRandomSolution(int totalVertices) {
     return randomTour;
 }
 
-Sequence SolveNN(const Data& data, bool useProfit) {
+AlgorithmResult SolveNN(const Data& data, bool useProfit) {
     int n = data.gains.size();
-    if (n == 0) return {};
+    if (n == 0) return { {}, 0.0 };
 
     Sequence tour;
     std::vector<bool> visited(n, false);
 
-    // 1. FAZA I: Budowanie pełnego cyklu Hamiltona (wszystkie wierzchołki)
+    // --- 1. FAZA I: Budowanie pełnego cyklu Hamiltona (wszystkie wierzchołki) ---
     int startCity = RandomNumber(0, n);
     tour.push_back(startCity);
     visited[startCity] = true;
@@ -78,16 +77,16 @@ Sequence SolveNN(const Data& data, bool useProfit) {
         double bestDelta = -std::numeric_limits<double>::max();
 
         for (int i = 0; i < n; ++i) {
-            if (!visited[i]) {
-                // Delta = (opcjonalny zysk) - koszt krawędzi
-                // Nawet jeśli delta jest ujemna, w Fazie I idziemy dalej, 
-                // bo musimy odwiedzić wszystkie miasta.
-                double delta = (useProfit ? (double)data.gains[i] : 0.0) - data.distances[last][i];
+            if (visited[i]) continue;
 
-                if (delta > bestDelta) {
-                    bestDelta = delta;
-                    bestCity = i;
-                }
+            double delta = -data.distances[last][i];
+            if (useProfit) {
+                delta += (double)data.gains[i];
+            }
+
+            if (delta > bestDelta) {
+                bestDelta = delta;
+                bestCity = i;
             }
         }
 
@@ -97,18 +96,26 @@ Sequence SolveNN(const Data& data, bool useProfit) {
         }
     }
 
-    // 2. FAZA II: Usuwanie wierzchołków, które psują wynik (Profit - Distance)
-    // To tutaj algorytm decyduje, który podzbiór wierzchołków zostawić.
-    return PruneTour(tour, data);
+    // --- OBLICZENIE DYSTANSU PO FAZIE I ---
+    double phase1Dist = 0.0;
+    for (int i = 0; i < n; ++i) {
+        int current = tour[i];
+        int next = tour[(i + 1) % n];
+        phase1Dist += data.distances[current][next];
+    }
+
+    // --- 2. FAZA II: Usuwanie wierzchołków ---
+    Sequence finalTour = PruneTour(tour, data);
+    return { finalTour, phase1Dist };
 }
 
-Sequence SolveGC(const Data& data, bool useProfit) {
+AlgorithmResult SolveGC(const Data& data, bool useProfit) {
     int n = data.gains.size();
-    if (n < 2) return {};
+    if (n < 2) return { {}, 0.0 };
 
     std::vector<bool> visited(n, false);
 
-    // 1. INICJALIZACJA: Wybór dwóch pierwszych punktów
+    // --- 1. INICJALIZACJA: Wybór dwóch pierwszych punktów ---
     int v1 = RandomNumber(0, n);
     visited[v1] = true;
 
@@ -116,23 +123,24 @@ Sequence SolveGC(const Data& data, bool useProfit) {
     double bestInitialDelta = -std::numeric_limits<double>::max();
 
     for (int i = 0; i < n; ++i) {
-        if (!visited[i]) {
-            // Delta dla cyklu dwuelementowego (v1 <-> i)
-            // Koszt to 2 * dystans (tam i powrót)
-            double delta = (useProfit ? (double)(data.gains[v1] + data.gains[i]) : 0.0) 
-                           - (2.0 * data.distances[v1][i]);
+        if (visited[i]) continue;
 
-            if (delta > bestInitialDelta) {
-                bestInitialDelta = delta;
-                v2 = i;
-            }
+        // Delta dla cyklu dwuelementowego (v1 <-> i)
+        double delta = -2.0 * data.distances[v1][i];
+        if (useProfit) {
+            delta += (double)(data.gains[v1] + data.gains[i]);
+        }
+
+        if (delta > bestInitialDelta) {
+            bestInitialDelta = delta;
+            v2 = i;
         }
     }
 
     Sequence tour = { v1, v2 };
     visited[v2] = true;
 
-    // 2. ROZBUDOWA: Budowanie pełnego cyklu (wszystkie wierzchołki)
+    // --- 2. ROZBUDOWA: Budowanie pełnego cyklu (wszystkie wierzchołki) ---
     while (tour.size() < n) {
         int bestCity = -1;
         int insertPos = -1;
@@ -145,9 +153,11 @@ Sequence SolveGC(const Data& data, bool useProfit) {
                 int cityI = tour[i];
                 int cityJ = tour[(i + 1) % tour.size()];
 
-                // Delta = Zysk - (Dodany dystans - Usunięty dystans)
                 double distChange = data.distances[cityI][u] + data.distances[u][cityJ] - data.distances[cityI][cityJ];
-                double delta = (useProfit ? (double)data.gains[u] : 0.0) - distChange;
+                double delta = -distChange;
+                if (useProfit) {
+                    delta += (double)data.gains[u];
+                }
 
                 if (delta > bestDelta) {
                     bestDelta = delta;
@@ -163,45 +173,51 @@ Sequence SolveGC(const Data& data, bool useProfit) {
         }
     }
 
-    // 3. KLUCZOWY KROK: Faza II - Usuwanie deficytowych wierzchołków
-    // Skoro problem to wybór podzbioru, to tutaj zapadają najważniejsze decyzje.
-    return PruneTour(tour, data);
+    // --- OBLICZENIE DYSTANSU PO FAZIE I (Pełny cykl Hamiltona) ---
+    double phase1Dist = 0.0;
+    for (int i = 0; i < (int)tour.size(); ++i) {
+        int current = tour[i];
+        int next = tour[(i + 1) % tour.size()];
+        phase1Dist += data.distances[current][next];
+    }
+
+    // --- 3. FAZA II: Usuwanie deficytowych wierzchołków ---
+    Sequence finalTour = PruneTour(tour, data);
+
+    return { finalTour, phase1Dist };
 }
 
-/**
- * @param data Dane wejściowe (macierz odległości i zyski)
- * @param useProfit Czy uwzględniać zysk w koszcie wstawienia (Faza Ia vs Ib)
- * @param alpha Waga żalu (domyślnie 1.0)
- * @param beta Waga kosztu (domyślnie 1.0, odejmowana od wyniku)
- */
-Sequence SolveWeighted2Regret(const Data& data, bool useProfit, double alpha, double beta) {
+AlgorithmResult SolveWeighted2Regret(const Data& data, bool useProfit, double alpha, double beta) {
     int n = data.gains.size();
-    if (n < 2) return {};
+    if (n < 2) return { {}, 0.0 };
 
     std::vector<bool> visited(n, false);
 
-    // 1. INICJALIZACJA (Faza I - start)
+    // --- 1. INICJALIZACJA (Faza I - start) ---
     int v1 = RandomNumber(0, n);
     visited[v1] = true;
 
     int v2 = -1;
     double bestInitialDelta = -std::numeric_limits<double>::max();
     for (int i = 0; i < n; ++i) {
-        if (!visited[i]) {
-            // Delta dla cyklu v1 <-> i
-            double delta = (useProfit ? (double)(data.gains[v1] + data.gains[i]) : 0.0)
-                - (2.0 * data.distances[v1][i]);
-            if (delta > bestInitialDelta) {
-                bestInitialDelta = delta;
-                v2 = i;
-            }
+        if (visited[i]) continue;
+
+        // Delta dla cyklu v1 <-> i
+        double delta = -2.0 * data.distances[v1][i];
+        if (useProfit) {
+            delta += (double)(data.gains[v1] + data.gains[i]);
+        }
+
+        if (delta > bestInitialDelta) {
+            bestInitialDelta = delta;
+            v2 = i;
         }
     }
 
     Sequence tour = { v1, v2 };
     visited[v2] = true;
 
-    // 2. GŁÓWNA PĘTLA (Rozbudowa o 2-żal)
+    // --- 2. GŁÓWNA PĘTLA (Rozbudowa o 2-żal) ---
     while (tour.size() < n) {
         int bestCityToAdd = -1;
         int bestPositionToAdd = -1;
@@ -214,13 +230,15 @@ Sequence SolveWeighted2Regret(const Data& data, bool useProfit, double alpha, do
             double secondBestDelta = -std::numeric_limits<double>::max();
             int currentBestPos = -1;
 
-            for (int i = 0; i < tour.size(); ++i) {
+            for (int i = 0; i < (int)tour.size(); ++i) {
                 int cityI = tour[i];
                 int cityJ = tour[(i + 1) % tour.size()];
 
-                // Efektywna delta: Zysk - (NoweKrawedzie - StaraKrawedz)
                 double distChange = data.distances[cityI][u] + data.distances[u][cityJ] - data.distances[cityI][cityJ];
-                double delta = (useProfit ? (double)data.gains[u] : 0.0) - distChange;
+                double delta = -distChange;
+                if (useProfit) {
+                    delta += (double)data.gains[u];
+                }
 
                 if (delta > bestDelta) {
                     secondBestDelta = bestDelta;
@@ -232,13 +250,10 @@ Sequence SolveWeighted2Regret(const Data& data, bool useProfit, double alpha, do
                 }
             }
 
-            // 2-żal: jak dużo tracimy wybierając gorszą pozycję wstawienia dla tego wierzchołka
-            // Jeśli tour ma 2 elementy, secondBestDelta mogła nie zostać przypisana
-            double regret = (secondBestDelta == -std::numeric_limits<double>::max()) ? 0 : (bestDelta - secondBestDelta);
+            // 2-żal: różnica między najlepszą a drugą najlepszą opcją wstawienia
+            double regret = (secondBestDelta == -std::numeric_limits<double>::max()) ? 0.0 : (bestDelta - secondBestDelta);
 
-            // Ważony wynik: 
-            // alpha * regret -> promujemy wierzchołki "pilne" (które mają tylko jedno dobre miejsce)
-            // beta * bestDelta -> promujemy wierzchołki "opłacalne" (które mocno podnoszą funkcję celu)
+            // Ważony wynik łączący żal (pilność) i deltę (zyskowność)
             double weightedScore = (alpha * regret) + (beta * bestDelta);
 
             if (weightedScore > maxWeightedScore) {
@@ -254,6 +269,14 @@ Sequence SolveWeighted2Regret(const Data& data, bool useProfit, double alpha, do
         }
     }
 
-    // 3. FAZA II - Pruning (Usuwanie nieopłacalnych wierzchołków)
-    return PruneTour(tour, data);
+    // --- OBLICZENIE DYSTANSU PO FAZIE I (Pełny cykl Hamiltona) ---
+    double phase1Dist = 0.0;
+    for (int i = 0; i < (int)tour.size(); ++i) {
+        phase1Dist += data.distances[tour[i]][tour[(i + 1) % tour.size()]];
+    }
+
+    // --- 3. FAZA II: Usuwanie deficytowych wierzchołków ---
+    Sequence finalTour = PruneTour(tour, data);
+
+    return { finalTour, phase1Dist };
 }

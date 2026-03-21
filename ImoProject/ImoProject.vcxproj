@@ -130,12 +130,14 @@
     <ClCompile Include="Common.cpp" />
     <ClCompile Include="Heuristics.cpp" />
     <ClCompile Include="ImoProject.cpp" />
+    <ClCompile Include="Tester.cpp" />
     <ClCompile Include="Timer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Common.h" />
     <ClInclude Include="Heuristics.h" />
     <ClInclude Include="Structs.h" />
+    <ClInclude Include="Tester.h" />
     <ClInclude Include="Timer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

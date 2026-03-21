@@ -28,3 +28,8 @@ struct InsertionOptions {
     double bestCost = std::numeric_limits<double>::max();
     double secondBestCost = std::numeric_limits<double>::max();
 };
+
+struct AlgorithmResult {
+    Sequence finalTour;
+    double phase1Distance;
+};

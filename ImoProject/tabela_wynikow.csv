@@ -1,0 +1,23 @@
+Metoda;TSPA.csv;TSPB.csv
+Losowy;-151640.67 (-292118 | -3863);-146951.51 (-290810 | -2440)
+NN bez zysku;2600.37 (-2121 | 5971);13472.42 (10375 | 16455)
+NN z zyskiem;-1013.30 (-3369 | 2479);5664.10 (2251 | 8651)
+GC bez zysku;3461.58 (1894 | 4368);13597.85 (12527 | 15375)
+GC z zyskiem;3711.18 (3135 | 4506);15058.44 (14181 | 16103)
+2-zal bez zysku;6147.65 (4928 | 6934);18077.10 (16877 | 19517)
+2-zal z zyskiem;6088.56 (5071 | 6934);18063.47 (16877 | 19294)
+2-zal wazony bez zysku;3934.57 (3305 | 4768);15452.76 (14384 | 16424)
+2-zal wazony z zyskiem;4356.44 (3366 | 5253);16183.61 (15364 | 16916)
+;;
+;;
+TABELA 2: Srednia dlugosc trasy po fazie I (Hamilton);;
+Metoda;TSPA.csv;TSPB.csv
+Losowy;0.00;0.00
+NN bez zysku;38970.52;38868.24
+NN z zyskiem;47505.72;51291.64
+GC bez zysku;36856.43;38492.13
+GC z zyskiem;36234.57;36602.74
+2-zal bez zysku;32474.24;32545.84
+2-zal z zyskiem;32532.22;32598.49
+2-zal wazony bez zysku;35180.85;36159.99
+2-zal wazony z zyskiem;35189.53;35642.57
