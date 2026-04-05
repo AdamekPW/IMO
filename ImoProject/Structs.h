@@ -33,3 +33,19 @@ struct AlgorithmResult {
     Sequence finalTour;
     double phase1Distance;
 };
+
+
+
+// --- do zadania 2 (sąsiedztwa)
+
+enum class MoveType { Add, Remove, IntraEdge, IntraVertex };
+enum class Neighborhood { Edge, Vertex };
+
+struct Move {
+    MoveType type;
+    int i = -1;       // Indeks w trasie (dla Remove/Swap/2-opt/Add pos)
+    int j = -1;       // Drugi indeks (dla Swap/2-opt)
+    int nodeVal = -1; // Wartość wierzchołka (dla Add)
+    double delta = -1e18;
+};
+

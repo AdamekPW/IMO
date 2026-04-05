@@ -1,7 +1,7 @@
 {
-  "total_distance": 4060,
-  "total_gain": 197,
-  "tour": [149, 129],
+  "total_distance": 5983,
+  "total_gain": 772,
+  "tour": [139, 6, 45, 133, 86, 93],
   "nodes": [
     {"id": 0, "x": 1355, "y": 1796, "gain": 233},
     {"id": 1, "x": 2524, "y": 387, "gain": 241},

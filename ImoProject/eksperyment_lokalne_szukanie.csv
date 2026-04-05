@@ -1,0 +1,26 @@
+TABELA 1: Statystyki funkcji celu (Zysk - Dystans); ;
+Metoda;TSPA.csv;TSPB.csv
+Greedy Vertex (Rand);-11371.0 (-24361.0 - 5524.0);-426.9 (-13404.0 - 15417.0)
+Greedy Edge (Rand);5516.9 (1398.0 - 7148.0);17017.1 (8638.0 - 19109.0)
+Steepest Vertex (Rand);-6604.1 (-25345.0 - 5902.0);2338.1 (-19222.0 - 17010.0)
+Steepest Edge (Rand);5749.7 (154.0 - 7414.0);16353.9 (280.0 - 19227.0)
+Greedy Vertex (Heur);6117.2 (5131.0 - 6945.0);18197.1 (17454.0 - 19132.0)
+Greedy Edge (Heur);6257.7 (5329.0 - 7240.0);18345.2 (17199.0 - 19459.0)
+Steepest Vertex (Heur);6222.5 (5131.0 - 6955.0);18111.3 (17019.0 - 19132.0)
+Steepest Edge (Heur);6310.0 (5329.0 - 7229.0);18454.2 (17381.0 - 19500.0)
+Random Walk;-27990.4 (-163836.0 - 339.0);-29762.0 (-150713.0 - 722.0)
+Heurystyka (Poprzednia);6078.1 (5071.0 - 6934.0);18057.0 (16877.0 - 19102.0)
+;;
+;;
+TABELA 2: Statystyki czasu obliczeń (ms);;
+Metoda;TSPA.csv;TSPB.csv
+Greedy Vertex (Rand);1181.1 (15 - 1996);1083.8 (166 - 1964)
+Greedy Edge (Rand);1030.6 (38 - 1692);1041.9 (100 - 1676)
+Steepest Vertex (Rand);393.4 (0 - 901);416.4 (1 - 892)
+Steepest Edge (Rand);253.4 (1 - 492);276.8 (1 - 508)
+Greedy Vertex (Heur);11.3 (3 - 26);11.3 (3 - 30)
+Greedy Edge (Heur);13.6 (2 - 29);17.4 (2 - 50)
+Steepest Vertex (Heur);8.8 (2 - 21);10.0 (2 - 31)
+Steepest Edge (Heur);9.5 (1 - 21);12.0 (1 - 37)
+Random Walk;1181.0 (1181 - 1181);1083.0 (1083 - 1083)
+Heurystyka (Poprzednia);56.3 (54 - 66);55.1 (54 - 58)

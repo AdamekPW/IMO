@@ -6,7 +6,7 @@
 
 int main()
 {
-    RunFullExperiment({ "Benchmarks/TSPA.csv", "Benchmarks/TSPB.csv" });
+    RunNeighboursExperiment({ "Benchmarks/TSPA.csv", "Benchmarks/TSPB.csv" });
     //Data data = LoadData("Benchmarks/TSPA.csv");
 
     //AlgorithmResult seq_NN_without_profit = SolveNN(data, false);
