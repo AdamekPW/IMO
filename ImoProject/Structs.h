@@ -49,3 +49,5 @@ struct Move {
     double delta = -1e18;
 };
 
+// --- do zadania 3 
+

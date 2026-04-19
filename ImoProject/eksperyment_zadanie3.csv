@@ -1,0 +1,14 @@
+TABELA 1: Statystyki funkcji celu (Zysk - Dystans);
+Metoda;TSPA.csv;TSPB.csv;
+Steepest + Move List (LM);5680.1 (242.0 - 7455.0);16678.7 (2079.0 - 19181.0);
+Steepest + Candidates;5530.1 (-224.0 - 7437.0);16229.6 (501.0 - 19552.0);
+Steepest Standard (Base);5648.1 (-39.0 - 7613.0);16560.8 (433.0 - 19313.0);
+Heuristic Task 1 (Base);6130.1 (5118.0 - 6934.0);18093.1 (17229.0 - 19270.0);
+
+TABELA 2: Statystyki czasu obliczeń (ms);
+Metoda;TSPA.csv;TSPB.csv;
+Steepest + Move List (LM);147.4 (1 - 1361);138.7 (2 - 940);
+Steepest + Candidates;44.6 (2 - 68);46.3 (1 - 65);
+Steepest Standard (Base);261.9 (2 - 517);291.9 (2 - 493);
+Heuristic Task 1 (Base);58.7 (58 - 62);58.4 (58 - 62);
+

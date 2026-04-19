@@ -4,6 +4,7 @@
 #include "Structs.h"
 #include <sstream>
 #include <iomanip>
+#include "zad3.h"
 
 struct Stats {
     double minObj = std::numeric_limits<double>::max();
@@ -64,3 +65,5 @@ struct TestResult {
 };
 
 void RunNeighboursExperiment(const std::vector<std::string>& filePaths);
+
+void RunTask3Experiment(const std::vector<std::string>& filePaths);

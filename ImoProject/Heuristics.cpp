@@ -506,3 +506,5 @@ Sequence RandomWalk(const Data& data, Sequence tour, long long timeLimitMs, Neig
 
     return bestTour;
 }
+
+// --- zadanie 3

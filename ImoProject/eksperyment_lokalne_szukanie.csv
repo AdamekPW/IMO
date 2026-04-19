@@ -12,7 +12,7 @@ Random Walk;-27990.4 (-163836.0 - 339.0);-29762.0 (-150713.0 - 722.0)
 Heurystyka (Poprzednia);6078.1 (5071.0 - 6934.0);18057.0 (16877.0 - 19102.0)
 ;;
 ;;
-TABELA 2: Statystyki czasu obliczeÅ„ (ms);;
+TABELA 2: Statystyki czasu obliczeñ (ms);;
 Metoda;TSPA.csv;TSPB.csv
 Greedy Vertex (Rand);1181.1 (15 - 1996);1083.8 (166 - 1964)
 Greedy Edge (Rand);1030.6 (38 - 1692);1041.9 (100 - 1676)

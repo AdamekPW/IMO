@@ -30,6 +30,9 @@
     <ClCompile Include="Tester.cpp">
       <Filter>Resource Files</Filter>
     </ClCompile>
+    <ClCompile Include="zad3.cpp">
+      <Filter>Resource Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Common.h">
@@ -45,6 +48,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Tester.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="zad3.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

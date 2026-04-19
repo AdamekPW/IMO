@@ -341,3 +341,123 @@ void RunNeighboursExperiment(const std::vector<std::string>& filePaths) {
     csvFile.close();
     std::cout << "\nEksperyment zakończony. Wyniki zbiorcze: 'eksperyment_lokalne_szukanie.csv'" << std::endl;
 }
+
+void RunTask3Experiment(const std::vector<std::string>& filePaths) {
+    std::ofstream csvFile("eksperyment_zadanie3.csv");
+    if (!csvFile.is_open()) {
+        std::cerr << "Błąd otwarcia pliku CSV!" << std::endl;
+        return;
+    }
+
+    struct Config {
+        std::string id;
+        std::string prettyName;
+    };
+
+    std::vector<Config> configs = {
+        {"LM",         "Steepest + Move List (LM)"},
+        {"Candidates", "Steepest + Candidates"},
+        {"Standard",   "Steepest Standard (Base)"},
+        {"Heuristic",  "Heuristic Task 1 (Base)"}
+    };
+
+    std::map<std::string, std::map<std::string, ExperimentStats>> resultsTable;
+    std::vector<std::string> instanceNames;
+
+    for (const auto& path : filePaths) {
+        Data data = LoadData(path);
+        std::string fileName = path.substr(path.find_last_of("/\\") + 1);
+        instanceNames.push_back(fileName);
+
+        // kandydaci liczeni raz na instancję
+        auto nearest_neighbors = build_candidate_edges(data, 10);
+
+        std::cout << "\n>>> Instancja: " << fileName << " <<<" << std::endl;
+
+        for (const auto& cfg : configs) {
+            std::cout << "  Algorytm: " << std::left << std::setw(30)
+                << cfg.prettyName << " [";
+
+            Sequence bestTourForCfg;
+            EvaluationResult bestMetricsForCfg{};
+            double bestValueForCfg = -std::numeric_limits<double>::max();
+
+            for (int i = 0; i < 100; ++i) {
+                Sequence currentTour;
+                long long duration = 0;
+
+                auto t1 = std::chrono::high_resolution_clock::now();
+
+                // Wybór odpowiedniego algorytmu
+                if (cfg.id == "LM") {
+                    Sequence start = GenerateRandomSolution(data.n);
+                    currentTour = LocalSearchLMOnly(data, start);
+                }
+                else if (cfg.id == "Candidates") {
+                    Sequence start = GenerateRandomSolution(data.n);
+                    currentTour = LocalSearchCandidates(data, start, nearest_neighbors);
+                }
+                else if (cfg.id == "Standard") {
+                    Sequence start = GenerateRandomSolution(data.n);
+                    currentTour = LocalSearch(data, start, true, Neighborhood::Edge);
+                }
+                else if (cfg.id == "Heuristic") {
+                    auto res = SolveWeighted2Regret(data, true, 1.0, 0.0);
+                    currentTour = res.finalTour;
+                }
+
+                auto t2 = std::chrono::high_resolution_clock::now();
+                duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+
+                EvaluationResult metrics = CalculateTourMetrics(currentTour, data);
+                double score = (double)metrics.totalGain - metrics.totalDistance;
+
+                // aktualizacja statystyk
+                resultsTable[cfg.prettyName][fileName].add(score, duration);
+
+                // zapamiętaj najlepszą trasę dla tej metody i tej instancji
+                if (score > bestValueForCfg) {
+                    bestValueForCfg = score;
+                    bestTourForCfg = currentTour;
+                    bestMetricsForCfg = metrics;
+                }
+
+                if (i % 20 == 0) std::cout << ".";
+            }
+
+            std::cout << "] Gotowe!" << std::endl;
+
+            // zapis najlepszego wyniku do JSON
+            std::string jsonName = "Results/Best_" + cfg.id + "_" + fileName + ".json";
+            SaveResultWithCoords(jsonName, path, bestTourForCfg, bestMetricsForCfg);
+        }
+    }
+
+    auto printTable = [&](const std::string& title, bool isTime) {
+        csvFile << title << ";\nMetoda;";
+        for (const auto& name : instanceNames) {
+            csvFile << name << ";";
+        }
+        csvFile << "\n";
+
+        for (const auto& cfg : configs) {
+            csvFile << cfg.prettyName << ";";
+            for (const auto& instName : instanceNames) {
+                if (isTime) {
+                    csvFile << resultsTable[cfg.prettyName][instName].formatTime() << ";";
+                }
+                else {
+                    csvFile << resultsTable[cfg.prettyName][instName].formatScore() << ";";
+                }
+            }
+            csvFile << "\n";
+        }
+        csvFile << "\n";
+        };
+
+    printTable("TABELA 1: Statystyki funkcji celu (Zysk - Dystans)", false);
+    printTable("TABELA 2: Statystyki czasu obliczeń (ms)", true);
+
+    csvFile.close();
+    std::cout << "\nEksperyment zakończony. Wyniki: 'eksperyment_zadanie3.csv'" << std::endl;
+}

@@ -25,3 +25,5 @@ Sequence LocalSearch(const Data& data, Sequence tour, bool steepest, Neighborhoo
 
 // Random Walk - błądzenie losowe działające przez X milisekund
 Sequence RandomWalk(const Data& data, Sequence tour, long long timeLimitMs, Neighborhood nType);
+
+
