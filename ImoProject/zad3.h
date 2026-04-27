@@ -51,6 +51,8 @@ struct TourManager {
         std::fill(succ.begin(), succ.end(), -1);
 
         int m = (int)tour.size();
+        if (m == 0) return;
+
         for (int i = 0; i < m; ++i) {
             int v = tour[i];
             pos[v] = i;
