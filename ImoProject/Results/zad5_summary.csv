@@ -1,0 +1,3 @@
+instance;best_score;corr_sim_to_best_vertices;corr_sim_to_best_edges;corr_avg_sim_others_vertices;corr_avg_sim_others_edges
+TSPA.csv;8336.000000;0.529203;0.634834;0.505786;0.594372
+TSPB.csv;19756.000000;0.817869;0.827012;0.810991;0.885842

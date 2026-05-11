@@ -2,6 +2,7 @@
 #include "Common.h"
 #include "Heuristics.h"
 #include "zad4.h"
+#include "zad5.h"
 
 #include <iostream>
 #include <map>
@@ -137,6 +138,7 @@ double initialEvaluate(const std::vector<int>& tour, const Data& data) {
 #include <numeric>
 #include <fstream>
 #include <iomanip>
+#include <unordered_set>
 #include <map>
 
 // Pomocnicza struktura do przechowywania statystyk
@@ -665,4 +667,230 @@ void RunTask4Experiment(const std::vector<std::string>& filePaths) {
     csvFile.close();
     std::cout << "\nEksperyment zakonczony. Wyniki: 'eksperyment_zadanie4.csv'" << std::endl;
     std::cout << "Najlepsze trasy: 'Results/Best_{MSLS,ILS,LNS,LNSa}_*.json'" << std::endl;
+}
+
+
+// =====================================================================
+// ZADANIE 5 - Testy globalnej wypuklosci
+// =====================================================================
+// Schemat dla kazdej instancji:
+//  1. Wygeneruj bardzo dobre rozwiazanie metoda LNS (najlepsza z zad. 4).
+//     Limit czasu = 3x sredni czas MSLS (kalibracja przez 1 uruchomienie MSLS).
+//  2. Wygeneruj 1000 losowych optyma lokalnych: losowe startowe -> LocalSearch zachlanny (Edge).
+//  3. Dla kazdego z 1000 optyma policz:
+//       a) podobienstwo do bardzo dobrego rozwiazania (wierzcholki i krawedzie),
+//       b) srednie podobienstwo do pozostalych 999 optyma (wierzcholki i krawedzie).
+//  4. Oblicz wspolczynniki korelacji Pearsona: wartosc funkcji celu vs podobienstwo.
+//  5. Zapisz wyniki do CSV (do wizualizacji w Jupyter Notebook).
+//
+// Miara podobienstwa:
+//   - liczba wspolnych wybranych wierzcholkow
+//   - liczba wspolnych krawedzi (nieskierowanych, cykl)
+// =====================================================================
+
+void RunTask5Experiment(const std::vector<std::string>& filePaths) {
+    constexpr int NUM_LOCAL_OPTIMA = 1000;
+
+    struct SummaryRow {
+        std::string instance;
+        double bestScore;
+        double corrBestV, corrBestE, corrAvgV, corrAvgE;
+    };
+    std::vector<SummaryRow> summary;
+
+    for (const auto& path : filePaths) {
+        Data data = LoadData(path);
+        std::string fileName = path.substr(path.find_last_of("/\\") + 1);
+
+        std::cout << "\n>>> Zadanie 5 (Globalna wypuklosc) - Instancja: " << fileName << " <<<" << std::endl;
+
+        // ----------------------------------------------------------------
+        // 1. Bardzo dobre rozwiazanie: LNS z limitem 3x sredni czas MSLS
+        // ----------------------------------------------------------------
+        std::cout << "  Kalibracja czasu przez MSLS (200 iter)..." << std::endl;
+        MSLSResult msls = MSLS(data, 200);
+        long long timeLimitMs = msls.elapsedMs * 3;
+
+        std::cout << "  LNS (Segment, 30%) z limitem " << timeLimitMs << " ms..." << std::endl;
+        ILSResult bestResult = LNS(data, timeLimitMs, 0.30, DestroyStrategy::Segment);
+        Sequence bestTour = bestResult.bestTour;
+        double bestScore = bestResult.bestScore;
+
+        EvaluationResult bestMetrics = CalculateTourMetrics(bestTour, data);
+        SaveResultWithCoords("Results/Best_Task5_" + fileName + ".json", path, bestTour, bestMetrics);
+        std::cout << "  Najlepszy wynik (LNS): " << bestScore << std::endl;
+
+        // Precomputed structures for the best solution
+        std::vector<bool> bestMember(data.n, false);
+        for (int v : bestTour) bestMember[v] = true;
+
+        // Encode edge as min*n + max (n = data.n, safe for n < 46340)
+        std::unordered_set<int> bestEdgeSet;
+        bestEdgeSet.reserve(bestTour.size() * 2);
+        for (int k = 0; k < (int)bestTour.size(); ++k) {
+            int u = bestTour[k], v = bestTour[(k + 1) % (int)bestTour.size()];
+            if (u > v) std::swap(u, v);
+            bestEdgeSet.insert(u * data.n + v);
+        }
+
+        // ----------------------------------------------------------------
+        // 2. Generuj 1000 losowych optyma lokalnych (zachlanny LS, krawedzie)
+        // ----------------------------------------------------------------
+        std::cout << "  Generowanie " << NUM_LOCAL_OPTIMA << " losowych optyma lokalnych [";
+
+        std::vector<Sequence> localOptima;
+        std::vector<double> scores;
+        localOptima.reserve(NUM_LOCAL_OPTIMA);
+        scores.reserve(NUM_LOCAL_OPTIMA);
+
+        for (int i = 0; i < NUM_LOCAL_OPTIMA; ++i) {
+            Sequence start = GenerateRandomSolution(data.n);
+            Sequence opt = LocalSearch(data, start, false, Neighborhood::Edge);
+            EvaluationResult m = CalculateTourMetrics(opt, data);
+            scores.push_back((double)m.totalGain - m.totalDistance);
+            localOptima.push_back(std::move(opt));
+            if (i % 100 == 0) std::cout << "." << std::flush;
+        }
+        std::cout << "] Gotowe!" << std::endl;
+
+        // ----------------------------------------------------------------
+        // 3. Precompute membership vectors and edge sets for all local optima
+        // ----------------------------------------------------------------
+        std::vector<std::vector<bool>> member(NUM_LOCAL_OPTIMA, std::vector<bool>(data.n, false));
+        std::vector<std::unordered_set<int>> edgeSets(NUM_LOCAL_OPTIMA);
+
+        for (int i = 0; i < NUM_LOCAL_OPTIMA; ++i) {
+            edgeSets[i].reserve(localOptima[i].size() * 2);
+            for (int v : localOptima[i]) member[i][v] = true;
+            for (int k = 0; k < (int)localOptima[i].size(); ++k) {
+                int u = localOptima[i][k], v = localOptima[i][(k + 1) % (int)localOptima[i].size()];
+                if (u > v) std::swap(u, v);
+                edgeSets[i].insert(u * data.n + v);
+            }
+        }
+
+        // ----------------------------------------------------------------
+        // 4a. Podobienstwo do najlepszego rozwiazania
+        // ----------------------------------------------------------------
+        std::cout << "  Liczenie podobienstwa do najlepszego rozwiazania..." << std::endl;
+        std::vector<int> simToBestV(NUM_LOCAL_OPTIMA, 0);
+        std::vector<int> simToBestE(NUM_LOCAL_OPTIMA, 0);
+
+        for (int i = 0; i < NUM_LOCAL_OPTIMA; ++i) {
+            for (int v : localOptima[i])
+                if (bestMember[v]) ++simToBestV[i];
+            for (int edgeKey : edgeSets[i])
+                if (bestEdgeSet.count(edgeKey)) ++simToBestE[i];
+        }
+
+        // ----------------------------------------------------------------
+        // 4b. Srednie podobienstwo do pozostalych 999 optyma (gorny trojkat)
+        // ----------------------------------------------------------------
+        std::cout << "  Liczenie parowywch podobienst (1000x1000)..." << std::endl;
+        std::vector<double> sumSimV(NUM_LOCAL_OPTIMA, 0.0);
+        std::vector<double> sumSimE(NUM_LOCAL_OPTIMA, 0.0);
+
+        for (int i = 0; i < NUM_LOCAL_OPTIMA; ++i) {
+            for (int j = i + 1; j < NUM_LOCAL_OPTIMA; ++j) {
+                int cv = 0;
+                for (int v : localOptima[j])
+                    if (member[i][v]) ++cv;
+                sumSimV[i] += cv;
+                sumSimV[j] += cv;
+
+                int ce = 0;
+                for (int edgeKey : edgeSets[j])
+                    if (edgeSets[i].count(edgeKey)) ++ce;
+                sumSimE[i] += ce;
+                sumSimE[j] += ce;
+            }
+            if (i % 100 == 0) {
+                std::cout << "  " << i << "/" << NUM_LOCAL_OPTIMA << "\r" << std::flush;
+            }
+        }
+        std::cout << "  " << NUM_LOCAL_OPTIMA << "/" << NUM_LOCAL_OPTIMA << std::endl;
+
+        std::vector<double> avgSimOthersV(NUM_LOCAL_OPTIMA);
+        std::vector<double> avgSimOthersE(NUM_LOCAL_OPTIMA);
+        for (int i = 0; i < NUM_LOCAL_OPTIMA; ++i) {
+            avgSimOthersV[i] = sumSimV[i] / (NUM_LOCAL_OPTIMA - 1);
+            avgSimOthersE[i] = sumSimE[i] / (NUM_LOCAL_OPTIMA - 1);
+        }
+
+        // ----------------------------------------------------------------
+        // 5. Wspolczynniki korelacji Pearsona
+        // ----------------------------------------------------------------
+        auto pearson = [](const std::vector<double>& x, const std::vector<double>& y) -> double {
+            int n = (int)x.size();
+            double mx = std::accumulate(x.begin(), x.end(), 0.0) / n;
+            double my = std::accumulate(y.begin(), y.end(), 0.0) / n;
+            double num = 0, dx2 = 0, dy2 = 0;
+            for (int i = 0; i < n; ++i) {
+                double dx = x[i] - mx, dy = y[i] - my;
+                num += dx * dy; dx2 += dx * dx; dy2 += dy * dy;
+            }
+            return (dx2 == 0 || dy2 == 0) ? 0.0 : num / std::sqrt(dx2 * dy2);
+        };
+
+        std::vector<double> sToBestVd(simToBestV.begin(), simToBestV.end());
+        std::vector<double> sToBestEd(simToBestE.begin(), simToBestE.end());
+
+        double corrBestV  = pearson(scores, sToBestVd);
+        double corrBestE  = pearson(scores, sToBestEd);
+        double corrAvgV   = pearson(scores, avgSimOthersV);
+        double corrAvgE   = pearson(scores, avgSimOthersE);
+
+        std::cout << std::fixed << std::setprecision(4);
+        std::cout << "\n  Wspolczynniki korelacji:" << std::endl;
+        std::cout << "  Sim do najlepszego (wierzcholki): " << corrBestV << std::endl;
+        std::cout << "  Sim do najlepszego (krawedzie):   " << corrBestE << std::endl;
+        std::cout << "  Srednia sim do innych (wierzcholki): " << corrAvgV << std::endl;
+        std::cout << "  Srednia sim do innych (krawedzie):   " << corrAvgE << std::endl;
+
+        // ----------------------------------------------------------------
+        // 6. Zapis do CSV
+        // ----------------------------------------------------------------
+        std::string csvPath = "Results/zad5_" + fileName + ".csv";
+        std::ofstream csvOut(csvPath);
+        if (!csvOut.is_open()) {
+            std::cerr << "Nie mozna otworzyc: " << csvPath << std::endl;
+            continue;
+        }
+
+        csvOut << "score;sim_to_best_vertices;sim_to_best_edges;avg_sim_others_vertices;avg_sim_others_edges\n";
+
+        csvOut << std::fixed << std::setprecision(6);
+        for (int i = 0; i < NUM_LOCAL_OPTIMA; ++i) {
+            csvOut << scores[i] << ";"
+                   << simToBestV[i] << ";"
+                   << simToBestE[i] << ";"
+                   << avgSimOthersV[i] << ";"
+                   << avgSimOthersE[i] << "\n";
+        }
+
+        csvOut.close();
+        std::cout << "  Wyniki zapisane do: " << csvPath << std::endl;
+
+        summary.push_back({ fileName, bestScore, corrBestV, corrBestE, corrAvgV, corrAvgE });
+    }
+
+    // Zapis pliku podsumowania z korelacjami (jeden wiersz na instancje)
+    std::ofstream sumOut("Results/zad5_summary.csv");
+    if (sumOut.is_open()) {
+        sumOut << "instance;best_score;corr_sim_to_best_vertices;corr_sim_to_best_edges;"
+                  "corr_avg_sim_others_vertices;corr_avg_sim_others_edges\n";
+        sumOut << std::fixed << std::setprecision(6);
+        for (const auto& row : summary) {
+            sumOut << row.instance << ";"
+                   << row.bestScore << ";"
+                   << row.corrBestV << ";"
+                   << row.corrBestE << ";"
+                   << row.corrAvgV  << ";"
+                   << row.corrAvgE  << "\n";
+        }
+        sumOut.close();
+        std::cout << "Podsumowanie korelacji: 'Results/zad5_summary.csv'" << std::endl;
+    }
+
+    std::cout << "\nZadanie 5 zakonczone." << std::endl;
 }

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import json; nb=json.load\\(open\\('main.ipynb'\\)\\); print\\(json.dumps\\([{'id': c.get\\('id',''\\), 'src': ''.join\\(c['source']\\)[:80]} for c in nb['cells']], indent=2\\)\\)\")"
+    ]
+  }
+}
