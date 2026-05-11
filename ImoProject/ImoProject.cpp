@@ -7,7 +7,8 @@
 int main()
 {
     //RunNeighboursExperiment({ "Benchmarks/TSPA.csv", "Benchmarks/TSPB.csv" });
-    RunTask3Experiment({ "Benchmarks/TSPA.csv", "Benchmarks/TSPB.csv" });
+    //RunTask3Experiment({ "Benchmarks/TSPA.csv", "Benchmarks/TSPB.csv" });
+    RunTask4Experiment({ "Benchmarks/TSPA.csv", "Benchmarks/TSPB.csv" });
     //Data data = LoadData("Benchmarks/TSPA.csv");
     //auto res = SolveWeighted2Regret(data, true, 1.0, 0.0);
     //Sequence startTour = res.finalTour;

@@ -67,3 +67,5 @@ struct TestResult {
 void RunNeighboursExperiment(const std::vector<std::string>& filePaths);
 
 void RunTask3Experiment(const std::vector<std::string>& filePaths);
+
+void RunTask4Experiment(const std::vector<std::string>& filePaths);

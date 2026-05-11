@@ -1,6 +1,7 @@
 #include "Tester.h"
 #include "Common.h"
 #include "Heuristics.h"
+#include "zad4.h"
 
 #include <iostream>
 #include <map>
@@ -460,4 +461,208 @@ void RunTask3Experiment(const std::vector<std::string>& filePaths) {
 
     csvFile.close();
     std::cout << "\nEksperyment zakończony. Wyniki: 'eksperyment_zadanie3.csv'" << std::endl;
+}
+
+
+// =====================================================================
+// ZADANIE 4 - Eksperyment: MSLS, ILS, LNS, LNSa
+// =====================================================================
+// Schemat:
+//  - Dla kazdej instancji: 20 uruchomien MSLS (po 200 iteracji LS),
+//    statystyki + zapis najlepszej trasy.
+//  - Sredni czas pojedynczego MSLS = warunek stopu dla ILS/LNS/LNSa.
+//  - Po 20 uruchomien ILS, LNS, LNSa - statystyki + zapis najlepszej trasy.
+//  - Trzy tabele CSV: funkcja celu, czas, liczba iteracji (perturbacji).
+//
+// Dla MSLS "liczba iteracji" = liczba przebiegow LS (zawsze 200).
+// Dla ILS/LNS/LNSa "liczba iteracji" = liczba wykonanych perturbacji.
+// =====================================================================
+
+// Pomocnicze formatowanie statystyki "srednia (min - max)" dla wektora intow
+static std::string formatIters(const std::vector<int>& iters) {
+    if (iters.empty()) return "N/A";
+    auto [minIt, maxIt] = std::minmax_element(iters.begin(), iters.end());
+    double avg = std::accumulate(iters.begin(), iters.end(), 0.0) / iters.size();
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(1) << avg << " (" << *minIt << " - " << *maxIt << ")";
+    return ss.str();
+}
+
+void RunTask4Experiment(const std::vector<std::string>& filePaths) {
+    std::ofstream csvFile("eksperyment_zadanie4.csv");
+    if (!csvFile.is_open()) {
+        std::cerr << "Blad otwarcia pliku CSV!" << std::endl;
+        return;
+    }
+
+    struct Config {
+        std::string id;
+        std::string prettyName;
+    };
+
+    std::vector<Config> configs = {
+        {"MSLS", "MSLS (Multiple Start LS)"},
+        {"ILS",  "ILS (Iterated LS)"},
+        {"LNS",  "LNS (Destroy-Repair + LS)"},
+        {"LNSa", "LNSa (Destroy-Repair bez LS)"}
+    };
+
+    // [metoda][instancja] -> stat (wynik + czas)
+    std::map<std::string, std::map<std::string, ExperimentStats>> resultsTable;
+    // [metoda][instancja] -> wektor liczb iteracji (osobno, bo ExperimentStats trzyma czas a nie iteracje)
+    std::map<std::string, std::map<std::string, std::vector<int>>> iterationsTable;
+    std::vector<std::string> instanceNames;
+
+    constexpr int RUNS = 20;          // liczba uruchomien kazdej metody
+    constexpr int MSLS_ITERS = 200;   // liczba iteracji LS w jednym MSLS
+
+    for (const auto& path : filePaths) {
+        Data data = LoadData(path);
+        std::string fileName = path.substr(path.find_last_of("/\\") + 1);
+        instanceNames.push_back(fileName);
+
+        std::cout << "\n>>> Instancja: " << fileName << " <<<" << std::endl;
+
+        // --------------------------------------------------------- MSLS
+        std::cout << "  Algorytm: " << std::left << std::setw(32)
+                  << "MSLS (200 iter LS)" << " [";
+
+        Sequence bestTourMSLS;
+        EvaluationResult bestMetricsMSLS{};
+        double bestValueMSLS = -std::numeric_limits<double>::max();
+        long long sumMSLSTime = 0;
+
+        for (int run = 0; run < RUNS; ++run) {
+            MSLSResult res = MSLS(data, MSLS_ITERS);
+
+            resultsTable["MSLS (Multiple Start LS)"][fileName].add(res.bestScore, res.elapsedMs);
+            iterationsTable["MSLS (Multiple Start LS)"][fileName].push_back(res.iterations);
+            sumMSLSTime += res.elapsedMs;
+
+            if (res.bestScore > bestValueMSLS) {
+                bestValueMSLS = res.bestScore;
+                bestTourMSLS = res.bestTour;
+                bestMetricsMSLS = CalculateTourMetrics(res.bestTour, data);
+            }
+            std::cout << ".";
+        }
+        std::cout << "] Gotowe!" << std::endl;
+
+        long long avgMSLSTime = sumMSLSTime / RUNS;
+        std::cout << "  >> Sredni czas MSLS: " << avgMSLSTime
+                  << " ms (limit dla ILS/LNS/LNSa)" << std::endl;
+
+        SaveResultWithCoords("Results/Best_MSLS_" + fileName + ".json",
+                             path, bestTourMSLS, bestMetricsMSLS);
+
+        // --------------------------------------------------------- ILS
+        std::cout << "  Algorytm: " << std::left << std::setw(32)
+                  << "ILS" << " [";
+
+        Sequence bestTourILS;
+        EvaluationResult bestMetricsILS{};
+        double bestValueILS = -std::numeric_limits<double>::max();
+
+        for (int run = 0; run < RUNS; ++run) {
+            ILSResult res = ILS(data, avgMSLSTime, 4);
+
+            resultsTable["ILS (Iterated LS)"][fileName].add(res.bestScore, res.elapsedMs);
+            iterationsTable["ILS (Iterated LS)"][fileName].push_back(res.perturbations);
+
+            if (res.bestScore > bestValueILS) {
+                bestValueILS = res.bestScore;
+                bestTourILS = res.bestTour;
+                bestMetricsILS = CalculateTourMetrics(res.bestTour, data);
+            }
+            std::cout << ".";
+        }
+        std::cout << "] Gotowe!" << std::endl;
+
+        SaveResultWithCoords("Results/Best_ILS_" + fileName + ".json",
+                             path, bestTourILS, bestMetricsILS);
+
+        // --------------------------------------------------------- LNS
+        std::cout << "  Algorytm: " << std::left << std::setw(32)
+                  << "LNS (Destroy heur. + LS)" << " [";
+
+        Sequence bestTourLNS;
+        EvaluationResult bestMetricsLNS{};
+        double bestValueLNS = -std::numeric_limits<double>::max();
+
+        for (int run = 0; run < RUNS; ++run) {
+            ILSResult res = LNS(data, avgMSLSTime, 0.30, DestroyStrategy::Segment);
+
+            resultsTable["LNS (Destroy-Repair + LS)"][fileName].add(res.bestScore, res.elapsedMs);
+            iterationsTable["LNS (Destroy-Repair + LS)"][fileName].push_back(res.perturbations);
+
+            if (res.bestScore > bestValueLNS) {
+                bestValueLNS = res.bestScore;
+                bestTourLNS = res.bestTour;
+                bestMetricsLNS = CalculateTourMetrics(res.bestTour, data);
+            }
+            std::cout << ".";
+        }
+        std::cout << "] Gotowe!" << std::endl;
+
+        SaveResultWithCoords("Results/Best_LNS_" + fileName + ".json",
+                             path, bestTourLNS, bestMetricsLNS);
+
+        // --------------------------------------------------------- LNSa
+        std::cout << "  Algorytm: " << std::left << std::setw(32)
+                  << "LNSa (Destroy heur. bez LS)" << " [";
+
+        Sequence bestTourLNSa;
+        EvaluationResult bestMetricsLNSa{};
+        double bestValueLNSa = -std::numeric_limits<double>::max();
+
+        for (int run = 0; run < RUNS; ++run) {
+            ILSResult res = LNSa(data, avgMSLSTime, 0.30, DestroyStrategy::Segment);
+
+            resultsTable["LNSa (Destroy-Repair bez LS)"][fileName].add(res.bestScore, res.elapsedMs);
+            iterationsTable["LNSa (Destroy-Repair bez LS)"][fileName].push_back(res.perturbations);
+
+            if (res.bestScore > bestValueLNSa) {
+                bestValueLNSa = res.bestScore;
+                bestTourLNSa = res.bestTour;
+                bestMetricsLNSa = CalculateTourMetrics(res.bestTour, data);
+            }
+            std::cout << ".";
+        }
+        std::cout << "] Gotowe!" << std::endl;
+
+        SaveResultWithCoords("Results/Best_LNSa_" + fileName + ".json",
+                             path, bestTourLNSa, bestMetricsLNSa);
+    }
+
+    // ==================== TABELE CSV ====================
+    enum TableMode { SCORE = 0, TIME = 1, ITERS = 2 };
+
+    auto printTable = [&](const std::string& title, TableMode mode) {
+        csvFile << title << ";\nMetoda;";
+        for (const auto& name : instanceNames) csvFile << name << ";";
+        csvFile << "\n";
+
+        for (const auto& cfg : configs) {
+            csvFile << cfg.prettyName << ";";
+            for (const auto& instName : instanceNames) {
+                if (mode == SCORE) {
+                    csvFile << resultsTable[cfg.prettyName][instName].formatScore() << ";";
+                } else if (mode == TIME) {
+                    csvFile << resultsTable[cfg.prettyName][instName].formatTime() << ";";
+                } else { // ITERS
+                    csvFile << formatIters(iterationsTable[cfg.prettyName][instName]) << ";";
+                }
+            }
+            csvFile << "\n";
+        }
+        csvFile << "\n";
+    };
+
+    printTable("TABELA 1: Statystyki funkcji celu (Zysk - Dystans)", SCORE);
+    printTable("TABELA 2: Statystyki czasu obliczen jednego uruchomienia (ms)", TIME);
+    printTable("TABELA 3: Liczba iteracji (LS dla MSLS, perturbacji dla ILS/LNS/LNSa)", ITERS);
+
+    csvFile.close();
+    std::cout << "\nEksperyment zakonczony. Wyniki: 'eksperyment_zadanie4.csv'" << std::endl;
+    std::cout << "Najlepsze trasy: 'Results/Best_{MSLS,ILS,LNS,LNSa}_*.json'" << std::endl;
 }
