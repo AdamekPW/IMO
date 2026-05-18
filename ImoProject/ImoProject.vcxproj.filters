@@ -36,6 +36,12 @@
     <ClCompile Include="zad4.cpp">
       <Filter>Resource Files</Filter>
     </ClCompile>
+    <ClCompile Include="zad5.cpp">
+      <Filter>Resource Files</Filter>
+    </ClCompile>
+    <ClCompile Include="zad6.cpp">
+      <Filter>Resource Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Common.h">
@@ -57,6 +63,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="zad4.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="zad5.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="zad6.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

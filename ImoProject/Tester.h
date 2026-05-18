@@ -72,3 +72,5 @@ void RunTask3Experiment(const std::vector<std::string>& filePaths);
 void RunTask4Experiment(const std::vector<std::string>& filePaths);
 
 void RunTask5Experiment(const std::vector<std::string>& filePaths);
+
+void RunTask6Experiment(const std::vector<std::string>& filePaths);

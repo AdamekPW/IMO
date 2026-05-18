@@ -3,6 +3,7 @@
 #include "Heuristics.h"
 #include "zad4.h"
 #include "zad5.h"
+#include "zad6.h"
 
 #include <iostream>
 #include <map>
@@ -893,4 +894,226 @@ void RunTask5Experiment(const std::vector<std::string>& filePaths) {
     }
 
     std::cout << "\nZadanie 5 zakonczone." << std::endl;
+}
+
+
+// =====================================================================
+// ZADANIE 6 - Eksperyment: HAE (5 wariantow) vs MSLS, ILS, LNS
+// =====================================================================
+// Schemat:
+//  - Kalibracja: 20 uruchomien MSLS (200 iter LS) -> avgMSLSTime
+//  - Kazda metoda: 20 uruchomien z limitem avgMSLSTime
+//  - Metody HAE: Op1+LS, Op2+LS, Op2 bez LS, Op3+LS, Op3 bez LS
+//  - Metody porownawcze: MSLS, ILS, LNS
+//  - Linie bazowe: Weighted 2-Regret, bazowe LS (rand + LocalSearch)
+//  - Trzy tabele CSV: funkcja celu, czas, liczba iteracji/rekombinacji
+// =====================================================================
+
+void RunTask6Experiment(const std::vector<std::string>& filePaths) {
+    std::ofstream csvFile("eksperyment_zadanie6.csv");
+    if (!csvFile.is_open()) {
+        std::cerr << "Blad otwarcia pliku CSV!" << std::endl;
+        return;
+    }
+
+    struct HAEConfig {
+        std::string  id;
+        std::string  prettyName;
+        HAEOperator  op;
+        bool         useLS;
+    };
+
+    std::vector<HAEConfig> haeConfigs = {
+        {"HAE_Op1",      "HAE Op1 + LS (wsp. podsciezki)",  HAEOperator::Op1, true },
+        {"HAE_Op2_LS",   "HAE Op2 + LS",                    HAEOperator::Op2, true },
+        {"HAE_Op2_noLS", "HAE Op2 (bez LS po rekomb.)",     HAEOperator::Op2, false},
+        {"HAE_Op3_LS",   "HAE Op3 + LS",                    HAEOperator::Op3, true },
+        {"HAE_Op3_noLS", "HAE Op3 (bez LS po rekomb.)",     HAEOperator::Op3, false},
+    };
+
+    // Kolejnosc wierszy w tabelach wynikowych
+    std::vector<std::string> allNames = {
+        "HAE Op1 + LS (wsp. podsciezki)",
+        "HAE Op2 + LS",
+        "HAE Op2 (bez LS po rekomb.)",
+        "HAE Op3 + LS",
+        "HAE Op3 (bez LS po rekomb.)",
+        "MSLS (200 iter LS)",
+        "ILS (Iterated LS)",
+        "LNS (Destroy-Repair + LS)",
+        "Heurystyka zachlanna (2-zal)",
+        "Bazowe LP (rand + LS)",
+    };
+
+    std::map<std::string, std::map<std::string, ExperimentStats>> resultsTable;
+    std::map<std::string, std::map<std::string, std::vector<int>>> iterationsTable;
+    std::vector<std::string> instanceNames;
+
+    constexpr int RUNS       = 20;
+    constexpr int MSLS_ITERS = 200;
+
+    for (const auto& path : filePaths) {
+        Data data = LoadData(path);
+        std::string fileName = path.substr(path.find_last_of("/\\") + 1);
+        instanceNames.push_back(fileName);
+
+        std::cout << "\n>>> Zadanie 6 - Instancja: " << fileName << " <<<" << std::endl;
+
+        // ------------------------------------------------- MSLS (kalibracja + wyniki)
+        std::cout << "  Algorytm: " << std::left << std::setw(36)
+                  << "MSLS (kalibracja + wyniki)" << " [";
+
+        long long sumMSLSTime = 0;
+        Sequence bestTourMSLS; EvaluationResult bestMetricsMSLS{}; double bestValueMSLS = -std::numeric_limits<double>::max();
+
+        for (int run = 0; run < RUNS; ++run) {
+            MSLSResult res = MSLS(data, MSLS_ITERS);
+            resultsTable["MSLS (200 iter LS)"][fileName].add(res.bestScore, res.elapsedMs);
+            iterationsTable["MSLS (200 iter LS)"][fileName].push_back(res.iterations);
+            sumMSLSTime += res.elapsedMs;
+            if (res.bestScore > bestValueMSLS) {
+                bestValueMSLS  = res.bestScore;
+                bestTourMSLS   = res.bestTour;
+                bestMetricsMSLS = CalculateTourMetrics(res.bestTour, data);
+            }
+            std::cout << ".";
+        }
+        std::cout << "] Gotowe!" << std::endl;
+
+        long long avgMSLSTime = sumMSLSTime / RUNS;
+        std::cout << "  >> Sredni czas MSLS: " << avgMSLSTime
+                  << " ms (limit dla pozostalych metod)" << std::endl;
+        SaveResultWithCoords("Results/Best_MSLS_z6_" + fileName + ".json",
+                             path, bestTourMSLS, bestMetricsMSLS);
+
+        // ------------------------------------------------- ILS
+        std::cout << "  Algorytm: " << std::left << std::setw(36)
+                  << "ILS" << " [";
+        Sequence bestTourILS; EvaluationResult bestMetricsILS{}; double bestValueILS = -std::numeric_limits<double>::max();
+        for (int run = 0; run < RUNS; ++run) {
+            ILSResult res = ILS(data, avgMSLSTime, 4);
+            resultsTable["ILS (Iterated LS)"][fileName].add(res.bestScore, res.elapsedMs);
+            iterationsTable["ILS (Iterated LS)"][fileName].push_back(res.perturbations);
+            if (res.bestScore > bestValueILS) {
+                bestValueILS  = res.bestScore;
+                bestTourILS   = res.bestTour;
+                bestMetricsILS = CalculateTourMetrics(res.bestTour, data);
+            }
+            std::cout << ".";
+        }
+        std::cout << "] Gotowe!" << std::endl;
+        SaveResultWithCoords("Results/Best_ILS_z6_" + fileName + ".json",
+                             path, bestTourILS, bestMetricsILS);
+
+        // ------------------------------------------------- LNS
+        std::cout << "  Algorytm: " << std::left << std::setw(36)
+                  << "LNS (Segment + LS)" << " [";
+        Sequence bestTourLNS; EvaluationResult bestMetricsLNS{}; double bestValueLNS = -std::numeric_limits<double>::max();
+        for (int run = 0; run < RUNS; ++run) {
+            ILSResult res = LNS(data, avgMSLSTime, 0.30, DestroyStrategy::Segment);
+            resultsTable["LNS (Destroy-Repair + LS)"][fileName].add(res.bestScore, res.elapsedMs);
+            iterationsTable["LNS (Destroy-Repair + LS)"][fileName].push_back(res.perturbations);
+            if (res.bestScore > bestValueLNS) {
+                bestValueLNS  = res.bestScore;
+                bestTourLNS   = res.bestTour;
+                bestMetricsLNS = CalculateTourMetrics(res.bestTour, data);
+            }
+            std::cout << ".";
+        }
+        std::cout << "] Gotowe!" << std::endl;
+        SaveResultWithCoords("Results/Best_LNS_z6_" + fileName + ".json",
+                             path, bestTourLNS, bestMetricsLNS);
+
+        // ------------------------------------------------- HAE warianty
+        for (const auto& cfg : haeConfigs) {
+            std::cout << "  Algorytm: " << std::left << std::setw(36)
+                      << cfg.prettyName << " [";
+            Sequence bestTour; EvaluationResult bestMetrics{}; double bestValue = -std::numeric_limits<double>::max();
+            for (int run = 0; run < RUNS; ++run) {
+                HAEResult res = HAE(data, avgMSLSTime, cfg.op, cfg.useLS);
+                resultsTable[cfg.prettyName][fileName].add(res.bestScore, res.elapsedMs);
+                iterationsTable[cfg.prettyName][fileName].push_back(res.iterations);
+                if (res.bestScore > bestValue) {
+                    bestValue   = res.bestScore;
+                    bestTour    = res.bestTour;
+                    bestMetrics = CalculateTourMetrics(res.bestTour, data);
+                }
+                std::cout << ".";
+            }
+            std::cout << "] Gotowe!" << std::endl;
+            SaveResultWithCoords("Results/Best_" + cfg.id + "_" + fileName + ".json",
+                                 path, bestTour, bestMetrics);
+        }
+
+        // ------------------------------------------------- Heurystyka zachlanna (baseline)
+        std::cout << "  Algorytm: " << std::left << std::setw(36)
+                  << "Heurystyka zachlanna (2-zal)" << " [";
+        Sequence bestTourH; EvaluationResult bestMetricsH{}; double bestValueH = -std::numeric_limits<double>::max();
+        for (int run = 0; run < RUNS; ++run) {
+            auto t1 = std::chrono::high_resolution_clock::now();
+            auto res = SolveWeighted2Regret(data, false, 1.0, 0.0);
+            auto t2 = std::chrono::high_resolution_clock::now();
+            long long dur = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+            EvaluationResult m = CalculateTourMetrics(res.finalTour, data);
+            double sc = (double)m.totalGain - (double)m.totalDistance;
+            resultsTable["Heurystyka zachlanna (2-zal)"][fileName].add(sc, dur);
+            iterationsTable["Heurystyka zachlanna (2-zal)"][fileName].push_back(1);
+            if (sc > bestValueH) { bestValueH = sc; bestTourH = res.finalTour; bestMetricsH = m; }
+            std::cout << ".";
+        }
+        std::cout << "] Gotowe!" << std::endl;
+        SaveResultWithCoords("Results/Best_Heur_z6_" + fileName + ".json",
+                             path, bestTourH, bestMetricsH);
+
+        // ------------------------------------------------- Bazowe LP (baseline)
+        std::cout << "  Algorytm: " << std::left << std::setw(36)
+                  << "Bazowe LP (rand + LS)" << " [";
+        Sequence bestTourLS; EvaluationResult bestMetricsLS{}; double bestValueLS = -std::numeric_limits<double>::max();
+        for (int run = 0; run < RUNS; ++run) {
+            auto t1 = std::chrono::high_resolution_clock::now();
+            Sequence start = GenerateRandomSolution(data.n);
+            Sequence tour  = LocalSearch(data, start, true, Neighborhood::Edge);
+            auto t2 = std::chrono::high_resolution_clock::now();
+            long long dur = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+            EvaluationResult m = CalculateTourMetrics(tour, data);
+            double sc = (double)m.totalGain - (double)m.totalDistance;
+            resultsTable["Bazowe LP (rand + LS)"][fileName].add(sc, dur);
+            iterationsTable["Bazowe LP (rand + LS)"][fileName].push_back(1);
+            if (sc > bestValueLS) { bestValueLS = sc; bestTourLS = tour; bestMetricsLS = m; }
+            std::cout << ".";
+        }
+        std::cout << "] Gotowe!" << std::endl;
+        SaveResultWithCoords("Results/Best_BaseLS_z6_" + fileName + ".json",
+                             path, bestTourLS, bestMetricsLS);
+    }
+
+    // ==================== TABELE CSV ====================
+    enum TableMode { SCORE = 0, TIME = 1, ITERS = 2 };
+
+    auto printTable = [&](const std::string& title, TableMode mode) {
+        csvFile << title << ";\nMetoda;";
+        for (const auto& name : instanceNames) csvFile << name << ";";
+        csvFile << "\n";
+        for (const auto& name : allNames) {
+            csvFile << name << ";";
+            for (const auto& inst : instanceNames) {
+                if (mode == SCORE)
+                    csvFile << resultsTable[name][inst].formatScore() << ";";
+                else if (mode == TIME)
+                    csvFile << resultsTable[name][inst].formatTime() << ";";
+                else
+                    csvFile << formatIters(iterationsTable[name][inst]) << ";";
+            }
+            csvFile << "\n";
+        }
+        csvFile << "\n";
+    };
+
+    printTable("TABELA 1: Statystyki funkcji celu (Zysk - Dystans)", SCORE);
+    printTable("TABELA 2: Statystyki czasu obliczen jednego uruchomienia (ms)", TIME);
+    printTable("TABELA 3: Liczba iteracji (rekombinacji/perturbacji)", ITERS);
+
+    csvFile.close();
+    std::cout << "\nZadanie 6 zakonczone. Wyniki: 'eksperyment_zadanie6.csv'" << std::endl;
+    std::cout << "Najlepsze trasy: 'Results/Best_{HAE_Op*,MSLS,ILS,LNS,Heur,BaseLS}_z6_*.json'" << std::endl;
 }

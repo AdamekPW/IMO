@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -c \"import json; nb=json.load\\(open\\('main.ipynb'\\)\\); print\\(json.dumps\\([{'id': c.get\\('id',''\\), 'src': ''.join\\(c['source']\\)[:80]} for c in nb['cells']], indent=2\\)\\)\")"
+      "Bash(python -c \"import json; nb=json.load\\(open\\('main.ipynb'\\)\\); print\\(json.dumps\\([{'id': c.get\\('id',''\\), 'src': ''.join\\(c['source']\\)[:80]} for c in nb['cells']], indent=2\\)\\)\")",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\szulc\\\\OneDrive\\\\Pulpit\\\\Magisterka\\\\Sem1\\\\InteligentneMetodyOptymalizacji\\\\ImoProject\\\\ImoProject\\\\\" | Where-Object { $_.PSIsContainer -eq $false })",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\szulc\\\\OneDrive\\\\Pulpit\\\\Magisterka\\\\Sem1\\\\InteligentneMetodyOptymalizacji\\\\\" -Recurse | Where-Object { $_.Extension -in @\\(\".txt\", \".doc\", \".docx\", \".md\"\\) })",
+      "Bash(python -c \"import sys,json; nb=json.load\\(sys.stdin\\); [print\\(f'--- Cell {i} ---\\\\n' + ''.join\\(c['source']\\)\\) for i,c in enumerate\\(nb['cells']\\) if 'zad5' in ''.join\\(c['source']\\).lower\\(\\) or 'convex' in ''.join\\(c['source']\\).lower\\(\\) or 'sim_to_best' in ''.join\\(c['source']\\).lower\\(\\) or 'pearson' in ''.join\\(c['source']\\).lower\\(\\)]\")",
+      "Bash(python -c ' *)"
     ]
   }
 }

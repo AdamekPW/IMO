@@ -1,0 +1,39 @@
+TABELA 1: Statystyki funkcji celu (Zysk - Dystans);
+Metoda;TSPA.csv;TSPB.csv;
+HAE Op1 + LS (wsp. podsciezki);8124.6 (7858.0 - 8551.0);19917.8 (19729.0 - 20139.0);
+HAE Op2 + LS;7960.8 (7601.0 - 8581.0);19968.3 (19752.0 - 20139.0);
+HAE Op2 (bez LS po rekomb.);7457.1 (7107.0 - 7881.0);18966.1 (18452.0 - 19540.0);
+HAE Op3 + LS;7629.8 (7013.0 - 8008.0);19180.1 (18758.0 - 19557.0);
+HAE Op3 (bez LS po rekomb.);7502.9 (6960.0 - 7833.0);19184.2 (18820.0 - 19645.0);
+MSLS (200 iter LS);7834.8 (7588.0 - 8159.0);19433.8 (19088.0 - 19799.0);
+ILS (Iterated LS);7948.9 (7536.0 - 8382.0);19506.0 (19034.0 - 19859.0);
+LNS (Destroy-Repair + LS);8277.0 (7737.0 - 8504.0);19615.8 (19417.0 - 19940.0);
+Heurystyka zachlanna (2-zal);6217.2 (5145.0 - 6934.0);17964.8 (16902.0 - 19517.0);
+Bazowe LP (rand + LS);5304.1 (374.0 - 7257.0);17381.0 (15037.0 - 18983.0);
+
+TABELA 2: Statystyki czasu obliczen jednego uruchomienia (ms);
+Metoda;TSPA.csv;TSPB.csv;
+HAE Op1 + LS (wsp. podsciezki);4883.4 (4879 - 4894);5528.5 (5526 - 5533);
+HAE Op2 + LS;4884.8 (4879 - 4891);5527.4 (5526 - 5531);
+HAE Op2 (bez LS po rekomb.);4879.4 (4879 - 4880);5526.0 (5526 - 5526);
+HAE Op3 + LS;4879.1 (4879 - 4880);5526.1 (5526 - 5527);
+HAE Op3 (bez LS po rekomb.);4879.0 (4879 - 4879);5526.0 (5526 - 5526);
+MSLS (200 iter LS);4879.6 (4791 - 5044);5526.1 (5453 - 5694);
+ILS (Iterated LS);4879.2 (4879 - 4880);5526.2 (5526 - 5527);
+LNS (Destroy-Repair + LS);4879.9 (4879 - 4881);5526.6 (5526 - 5529);
+Heurystyka zachlanna (2-zal);4.0 (3 - 4);3.8 (3 - 4);
+Bazowe LP (rand + LS);23.0 (0 - 41);26.5 (12 - 43);
+
+TABELA 3: Liczba iteracji (rekombinacji/perturbacji);
+Metoda;TSPA.csv;TSPB.csv;
+HAE Op1 + LS (wsp. podsciezki);351.8 (302 - 475);782.8 (469 - 1517);
+HAE Op2 + LS;366.7 (303 - 779);986.4 (578 - 1497);
+HAE Op2 (bez LS po rekomb.);2954.7 (2744 - 3233);5189.2 (4882 - 5511);
+HAE Op3 + LS;4794.9 (3848 - 5738);7123.7 (6193 - 8094);
+HAE Op3 (bez LS po rekomb.);6753.1 (5718 - 8871);10838.8 (9719 - 13225);
+MSLS (200 iter LS);200.0 (200 - 200);200.0 (200 - 200);
+ILS (Iterated LS);4018.3 (3845 - 4172);4469.9 (4298 - 4574);
+LNS (Destroy-Repair + LS);2427.4 (2201 - 2618);3040.8 (2140 - 3606);
+Heurystyka zachlanna (2-zal);1.0 (1 - 1);1.0 (1 - 1);
+Bazowe LP (rand + LS);1.0 (1 - 1);1.0 (1 - 1);
+

@@ -134,6 +134,8 @@
     <ClCompile Include="Timer.cpp" />
     <ClCompile Include="zad3.cpp" />
     <ClCompile Include="zad4.cpp" />
+    <ClCompile Include="zad5.cpp" />
+    <ClCompile Include="zad6.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Common.h" />
@@ -143,6 +145,8 @@
     <ClInclude Include="Timer.h" />
     <ClInclude Include="zad3.h" />
     <ClInclude Include="zad4.h" />
+    <ClInclude Include="zad5.h" />
+    <ClInclude Include="zad6.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
