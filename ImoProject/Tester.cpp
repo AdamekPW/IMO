@@ -4,6 +4,7 @@
 #include "zad4.h"
 #include "zad5.h"
 #include "zad6.h"
+#include "zad7.h"
 
 #include <iostream>
 #include <map>
@@ -1116,4 +1117,196 @@ void RunTask6Experiment(const std::vector<std::string>& filePaths) {
     csvFile.close();
     std::cout << "\nZadanie 6 zakonczone. Wyniki: 'eksperyment_zadanie6.csv'" << std::endl;
     std::cout << "Najlepsze trasy: 'Results/Best_{HAE_Op*,MSLS,ILS,LNS,Heur,BaseLS}_z6_*.json'" << std::endl;
+}
+
+
+// =====================================================================
+// ZADANIE 7 - Eksperyment: OwnMethod (HLNS-C) vs metody referencyjne
+// =====================================================================
+// Schemat:
+//   - Kalibracja: 20 uruchomien MSLS (200 iter LS) -> avgMSLSTime
+//   - Kazda metoda: 20 uruchomien z limitem avgMSLSTime
+//   - Metody referencyjne: MSLS, ILS, LNS, HAE Op1+LS, HAE Op2+LS
+//   - Wlasna metoda: HLNS-C (OwnMethod)
+//   - Trzy tabele CSV: funkcja celu, czas, liczba iteracji
+// =====================================================================
+
+void RunTask7Experiment(const std::vector<std::string>& filePaths)
+{
+    std::ofstream csvFile("eksperyment_zadanie7.csv");
+    if (!csvFile.is_open()) {
+        std::cerr << "Blad otwarcia pliku CSV!" << std::endl;
+        return;
+    }
+
+    std::vector<std::string> allNames = {
+        "HLNS-C (wlasna metoda)",
+        "HAE Op1 + LS",
+        "HAE Op2 + LS",
+        "MSLS (200 iter LS)",
+        "ILS (Iterated LS)",
+        "LNS (Destroy-Repair + LS)",
+    };
+
+    std::map<std::string, std::map<std::string, ExperimentStats>> resultsTable;
+    std::map<std::string, std::map<std::string, std::vector<int>>> iterationsTable;
+    std::vector<std::string> instanceNames;
+
+    constexpr int RUNS       = 20;
+    constexpr int MSLS_ITERS = 200;
+
+    for (const auto& path : filePaths) {
+        Data data = LoadData(path);
+        std::string fileName = path.substr(path.find_last_of("/\\") + 1);
+        instanceNames.push_back(fileName);
+
+        std::cout << "\n>>> Zadanie 7 - Instancja: " << fileName << " <<<" << std::endl;
+
+        // ----------------------------------------- MSLS (kalibracja + wyniki)
+        std::cout << "  Algorytm: " << std::left << std::setw(36)
+                  << "MSLS (kalibracja + wyniki)" << " [";
+
+        long long sumMSLSTime = 0;
+        Sequence bestTourMSLS; EvaluationResult bestMetricsMSLS{}; double bestValueMSLS = -std::numeric_limits<double>::max();
+
+        for (int run = 0; run < RUNS; ++run) {
+            MSLSResult res = MSLS(data, MSLS_ITERS);
+            resultsTable["MSLS (200 iter LS)"][fileName].add(res.bestScore, res.elapsedMs);
+            iterationsTable["MSLS (200 iter LS)"][fileName].push_back(res.iterations);
+            sumMSLSTime += res.elapsedMs;
+            if (res.bestScore > bestValueMSLS) {
+                bestValueMSLS   = res.bestScore;
+                bestTourMSLS    = res.bestTour;
+                bestMetricsMSLS = CalculateTourMetrics(res.bestTour, data);
+            }
+            std::cout << ".";
+        }
+        std::cout << "] Gotowe!" << std::endl;
+
+        long long avgMSLSTime = sumMSLSTime / RUNS;
+        std::cout << "  >> Sredni czas MSLS: " << avgMSLSTime
+                  << " ms (limit dla pozostalych metod)" << std::endl;
+        SaveResultWithCoords("Results/Best_MSLS_z7_" + fileName + ".json",
+                             path, bestTourMSLS, bestMetricsMSLS);
+
+        // ----------------------------------------- ILS
+        std::cout << "  Algorytm: " << std::left << std::setw(36) << "ILS" << " [";
+        Sequence bestTourILS; EvaluationResult bestMetricsILS{}; double bestValueILS = -std::numeric_limits<double>::max();
+        for (int run = 0; run < RUNS; ++run) {
+            ILSResult res = ILS(data, avgMSLSTime, 4);
+            resultsTable["ILS (Iterated LS)"][fileName].add(res.bestScore, res.elapsedMs);
+            iterationsTable["ILS (Iterated LS)"][fileName].push_back(res.perturbations);
+            if (res.bestScore > bestValueILS) {
+                bestValueILS   = res.bestScore;
+                bestTourILS    = res.bestTour;
+                bestMetricsILS = CalculateTourMetrics(res.bestTour, data);
+            }
+            std::cout << ".";
+        }
+        std::cout << "] Gotowe!" << std::endl;
+        SaveResultWithCoords("Results/Best_ILS_z7_" + fileName + ".json",
+                             path, bestTourILS, bestMetricsILS);
+
+        // ----------------------------------------- LNS
+        std::cout << "  Algorytm: " << std::left << std::setw(36) << "LNS (Segment + LS)" << " [";
+        Sequence bestTourLNS; EvaluationResult bestMetricsLNS{}; double bestValueLNS = -std::numeric_limits<double>::max();
+        for (int run = 0; run < RUNS; ++run) {
+            ILSResult res = LNS(data, avgMSLSTime, 0.3, DestroyStrategy::Segment);
+            resultsTable["LNS (Destroy-Repair + LS)"][fileName].add(res.bestScore, res.elapsedMs);
+            iterationsTable["LNS (Destroy-Repair + LS)"][fileName].push_back(res.perturbations);
+            if (res.bestScore > bestValueLNS) {
+                bestValueLNS   = res.bestScore;
+                bestTourLNS    = res.bestTour;
+                bestMetricsLNS = CalculateTourMetrics(res.bestTour, data);
+            }
+            std::cout << ".";
+        }
+        std::cout << "] Gotowe!" << std::endl;
+        SaveResultWithCoords("Results/Best_LNS_z7_" + fileName + ".json",
+                             path, bestTourLNS, bestMetricsLNS);
+
+        // ----------------------------------------- HAE Op1 + LS
+        std::cout << "  Algorytm: " << std::left << std::setw(36) << "HAE Op1 + LS" << " [";
+        Sequence bestTourHAE1; EvaluationResult bestMetricsHAE1{}; double bestValueHAE1 = -std::numeric_limits<double>::max();
+        for (int run = 0; run < RUNS; ++run) {
+            HAEResult res = HAE(data, avgMSLSTime, HAEOperator::Op1, true);
+            resultsTable["HAE Op1 + LS"][fileName].add(res.bestScore, res.elapsedMs);
+            iterationsTable["HAE Op1 + LS"][fileName].push_back(res.iterations);
+            if (res.bestScore > bestValueHAE1) {
+                bestValueHAE1   = res.bestScore;
+                bestTourHAE1    = res.bestTour;
+                bestMetricsHAE1 = CalculateTourMetrics(res.bestTour, data);
+            }
+            std::cout << ".";
+        }
+        std::cout << "] Gotowe!" << std::endl;
+        SaveResultWithCoords("Results/Best_HAE1_z7_" + fileName + ".json",
+                             path, bestTourHAE1, bestMetricsHAE1);
+
+        // ----------------------------------------- HAE Op2 + LS
+        std::cout << "  Algorytm: " << std::left << std::setw(36) << "HAE Op2 + LS" << " [";
+        Sequence bestTourHAE2; EvaluationResult bestMetricsHAE2{}; double bestValueHAE2 = -std::numeric_limits<double>::max();
+        for (int run = 0; run < RUNS; ++run) {
+            HAEResult res = HAE(data, avgMSLSTime, HAEOperator::Op2, true);
+            resultsTable["HAE Op2 + LS"][fileName].add(res.bestScore, res.elapsedMs);
+            iterationsTable["HAE Op2 + LS"][fileName].push_back(res.iterations);
+            if (res.bestScore > bestValueHAE2) {
+                bestValueHAE2   = res.bestScore;
+                bestTourHAE2    = res.bestTour;
+                bestMetricsHAE2 = CalculateTourMetrics(res.bestTour, data);
+            }
+            std::cout << ".";
+        }
+        std::cout << "] Gotowe!" << std::endl;
+        SaveResultWithCoords("Results/Best_HAE2_z7_" + fileName + ".json",
+                             path, bestTourHAE2, bestMetricsHAE2);
+
+        // ----------------------------------------- HLNS-C (wlasna metoda)
+        std::cout << "  Algorytm: " << std::left << std::setw(36) << "HLNS-C (wlasna metoda)" << " [";
+        Sequence bestTourOwn; EvaluationResult bestMetricsOwn{}; double bestValueOwn = -std::numeric_limits<double>::max();
+        for (int run = 0; run < RUNS; ++run) {
+            OwnResult res = OwnMethodParallel(data, avgMSLSTime);
+            resultsTable["HLNS-C (wlasna metoda)"][fileName].add(res.bestScore, res.elapsedMs);
+            iterationsTable["HLNS-C (wlasna metoda)"][fileName].push_back(res.iterations);
+            if (res.bestScore > bestValueOwn) {
+                bestValueOwn   = res.bestScore;
+                bestTourOwn    = res.bestTour;
+                bestMetricsOwn = CalculateTourMetrics(res.bestTour, data);
+            }
+            std::cout << ".";
+        }
+        std::cout << "] Gotowe!" << std::endl;
+        SaveResultWithCoords("Results/Best_HLNSC_z7_" + fileName + ".json",
+                             path, bestTourOwn, bestMetricsOwn);
+    }
+
+    // ==================== TABELE CSV ====================
+    enum TableMode7 { SCORE7 = 0, TIME7 = 1, ITERS7 = 2 };
+
+    auto printTable7 = [&](const std::string& title, TableMode7 mode) {
+        csvFile << title << ";\nMetoda;";
+        for (const auto& name : instanceNames) csvFile << name << ";";
+        csvFile << "\n";
+        for (const auto& name : allNames) {
+            csvFile << name << ";";
+            for (const auto& inst : instanceNames) {
+                if (mode == SCORE7)
+                    csvFile << resultsTable[name][inst].formatScore() << ";";
+                else if (mode == TIME7)
+                    csvFile << resultsTable[name][inst].formatTime() << ";";
+                else
+                    csvFile << formatIters(iterationsTable[name][inst]) << ";";
+            }
+            csvFile << "\n";
+        }
+        csvFile << "\n";
+    };
+
+    printTable7("TABELA 1: Statystyki funkcji celu (Zysk - Dystans)", SCORE7);
+    printTable7("TABELA 2: Statystyki czasu obliczen jednego uruchomienia (ms)", TIME7);
+    printTable7("TABELA 3: Liczba iteracji (rekombinacji/perturbacji/LNS)", ITERS7);
+
+    csvFile.close();
+    std::cout << "\nZadanie 7 zakonczone. Wyniki: 'eksperyment_zadanie7.csv'" << std::endl;
+    std::cout << "Najlepsze trasy: 'Results/Best_{HLNSC,HAE1,HAE2,MSLS,ILS,LNS}_z7_*.json'" << std::endl;
 }
